@@ -1,0 +1,124 @@
+{
+  "analysis_timestamp": "2026-06-12T04:00:30.982493",
+  "benchmarks_compared": [
+    "Original (vunknown)",
+    "Perf Improvements (v27fd005)",
+    "Async Writes (vdb7f982)"
+  ],
+  "performance_evolution": {
+    "Original (vunknown)": {
+      "metrics": {
+        "git-mem": {
+          "set": {
+            "latency_mean_ms": 22.164297667331994,
+            "throughput_ops_sec": 45.117603770224676,
+            "success_rate": 100.0
+          },
+          "get": {
+            "latency_mean_ms": 0.16506812069565058,
+            "throughput_ops_sec": 6058.104955612724,
+            "success_rate": 100.0
+          },
+          "delete": {
+            "latency_mean_ms": 3.7141493801027536,
+            "throughput_ops_sec": 269.24065180499946,
+            "success_rate": 100.0
+          },
+          "list": {
+            "latency_mean_ms": 3.047853009775281,
+            "throughput_ops_sec": 328.09981216047237,
+            "success_rate": 100.0
+          }
+        }
+      },
+      "version": "unknown",
+      "timestamp": "20260611_225923",
+      "changes": "unknown"
+    },
+    "Perf Improvements (v27fd005)": {
+      "metrics": {
+        "git-mem": {
+          "set": {
+            "latency_mean_ms": 2.570924782194197,
+            "throughput_ops_sec": 388.96509416605096,
+            "success_rate": 100.0
+          },
+          "get": {
+            "latency_mean_ms": 0.2547976793721318,
+            "throughput_ops_sec": 3924.6825264036283,
+            "success_rate": 100.0
+          },
+          "delete": {
+            "latency_mean_ms": 1.0146326199173927,
+            "throughput_ops_sec": 985.5784057892954,
+            "success_rate": 100.0
+          },
+          "list": {
+            "latency_mean_ms": 2.0020517986267805,
+            "throughput_ops_sec": 499.48757603869495,
+            "success_rate": 100.0
+          }
+        }
+      },
+      "version": "27fd005",
+      "timestamp": "20260612_030047",
+      "changes": "perf: incremental tree commits + O(1) Get"
+    },
+    "Async Writes (vdb7f982)": {
+      "metrics": {
+        "git-mem-sync": {
+          "set": {
+            "latency_mean_ms": 1.8099507503211498,
+            "throughput_ops_sec": 552.5012212749791,
+            "success_rate": 100.0
+          },
+          "get": {
+            "latency_mean_ms": 0.24478356819599867,
+            "throughput_ops_sec": 4085.241535491051,
+            "success_rate": 100.0
+          },
+          "delete": {
+            "latency_mean_ms": 0.977356806397438,
+            "throughput_ops_sec": 1023.1677862724723,
+            "success_rate": 100.0
+          },
+          "list": {
+            "latency_mean_ms": 0.18297694623470306,
+            "throughput_ops_sec": 5465.169359189698,
+            "success_rate": 100.0
+          }
+        },
+        "git-mem-async": {
+          "set": {
+            "latency_mean_ms": 0.7326566381379962,
+            "throughput_ops_sec": 1364.8958433536359,
+            "success_rate": 100.0
+          },
+          "get": {
+            "latency_mean_ms": 0.23378544487059116,
+            "throughput_ops_sec": 4277.426255315153,
+            "success_rate": 100.0
+          },
+          "delete": {
+            "latency_mean_ms": 0.3272273950278759,
+            "throughput_ops_sec": 3055.9788550552494,
+            "success_rate": 100.0
+          },
+          "list": {
+            "latency_mean_ms": 0.1943239476531744,
+            "throughput_ops_sec": 5146.046136242459,
+            "success_rate": 100.0
+          }
+        }
+      },
+      "version": "db7f982",
+      "timestamp": "20260612_035921",
+      "changes": "feat: optional async write-back commits (-async-writes)"
+    }
+  },
+  "summary": {
+    "set_operation_improvement": "Async writes provide 2.5x speedup over sync",
+    "key_finding": "git-mem with async writes is now within 1.5-3.6x of engram performance",
+    "recommendation": "Use -async-writes flag for production deployments"
+  }
+}

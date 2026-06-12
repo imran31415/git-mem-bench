@@ -1,0 +1,100 @@
+{
+  "comparison_timestamp": "2026-06-12T03:01:58.614081",
+  "old_benchmark": "20260611_225923",
+  "new_benchmark": "20260612_030047",
+  "git_mem_changes": "perf: incremental tree commits + O(1) Get",
+  "performance_comparison": {
+    "set": {
+      "old_latency_ms": 22.164297667331994,
+      "new_latency_ms": 2.570924782194197,
+      "improvement_ratio": 8.621138129298172,
+      "improvement_percentage": 88.4006034353911,
+      "old_throughput_ops_sec": 45.117603770224676,
+      "new_throughput_ops_sec": 388.96509416605096,
+      "throughput_improvement_pct": 762.1138129298173,
+      "old_success_rate": 100.0,
+      "new_success_rate": 100.0
+    },
+    "get": {
+      "old_latency_ms": 0.16506812069565058,
+      "new_latency_ms": 0.2547976793721318,
+      "improvement_ratio": 0.647839968960505,
+      "improvement_percentage": -54.35910840829338,
+      "old_throughput_ops_sec": 6058.104955612724,
+      "new_throughput_ops_sec": 3924.6825264036283,
+      "throughput_improvement_pct": -35.216003103949504,
+      "old_success_rate": 100.0,
+      "new_success_rate": 100.0
+    },
+    "delete": {
+      "old_latency_ms": 3.7141493801027536,
+      "new_latency_ms": 1.0146326199173927,
+      "improvement_ratio": 3.6605854249049714,
+      "improvement_percentage": 72.68196520708268,
+      "old_throughput_ops_sec": 269.24065180499946,
+      "new_throughput_ops_sec": 985.5784057892954,
+      "throughput_improvement_pct": 266.05854249049713,
+      "old_success_rate": 100.0,
+      "new_success_rate": 100.0
+    },
+    "list": {
+      "old_latency_ms": 3.047853009775281,
+      "new_latency_ms": 2.0020517986267805,
+      "improvement_ratio": 1.522364711974896,
+      "improvement_percentage": 34.31271809350175,
+      "old_throughput_ops_sec": 328.09981216047237,
+      "new_throughput_ops_sec": 499.48757603869495,
+      "throughput_improvement_pct": 52.236471197489585,
+      "old_success_rate": 100.0,
+      "new_success_rate": 100.0
+    }
+  },
+  "git_mem_new_metrics": {
+    "set": {
+      "latency_mean_ms": 2.570924782194197,
+      "throughput_ops_sec": 388.96509416605096,
+      "success_rate": 100.0
+    },
+    "get": {
+      "latency_mean_ms": 0.2547976793721318,
+      "throughput_ops_sec": 3924.6825264036283,
+      "success_rate": 100.0
+    },
+    "delete": {
+      "latency_mean_ms": 1.0146326199173927,
+      "throughput_ops_sec": 985.5784057892954,
+      "success_rate": 100.0
+    },
+    "list": {
+      "latency_mean_ms": 2.0020517986267805,
+      "throughput_ops_sec": 499.48757603869495,
+      "success_rate": 100.0
+    },
+    "search": {
+      "latency_mean_ms": 4.141745972447097,
+      "success_rate": 100.0
+    }
+  },
+  "engram_metrics": {
+    "set": {
+      "latency_mean_ms": 0.36120413802564144,
+      "throughput_ops_sec": 2768.5175631321567,
+      "success_rate": 100.0
+    },
+    "get": {
+      "latency_mean_ms": 0.12805636040866375,
+      "throughput_ops_sec": 7809.06154765542,
+      "success_rate": 100.0
+    },
+    "delete": {
+      "latency_mean_ms": 0.09387229569256306,
+      "throughput_ops_sec": 10652.77026221938,
+      "success_rate": 100.0
+    },
+    "list": {
+      "latency_mean_ms": 0.07623503915965557,
+      "throughput_ops_sec": 13117.327819636133,
+      "success_rate": 100.0
+    }
+  }
+}

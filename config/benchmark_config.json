@@ -1,0 +1,31 @@
+{
+  "servers": {
+    "git-mem-sync": {
+      "command": ["git-mem", "-repo", "/tmp/benchmark-git-mem-sync"],
+      "enabled": true,
+      "description": "git-mem vdb7f982 (synchronous writes)",
+      "version": "db7f982"
+    },
+    "git-mem-async": {
+      "command": ["git-mem", "-repo", "/tmp/benchmark-git-mem-async", "-async-writes", "10ms"],
+      "enabled": true,
+      "description": "git-mem vdb7f982 (async writes, 10ms flush)",
+      "version": "db7f982",
+      "async_writes": true
+    },
+    "engram": {
+      "command": ["/home/ubuntu/go/bin/engram", "mcp", "--tools=agent"],
+      "enabled": true,
+      "description": "SQLite-based memory with full-text search and 19 tools",
+      "version": "1.16.1"
+    }
+  },
+  "benchmark": {
+    "test_data_size": 100,
+    "crud_operations": 50,
+    "search_queries": ["test", "item", "document", "benchmark"],
+    "concurrent_threads": 3,
+    "output_directory": "/home/dev/t/mcp-memory-benchmark/results",
+    "git_mem_changes": "feat: optional async write-back commits (-async-writes)"
+  }
+}
