@@ -1,0 +1,5 @@
+version,server,set_latency_ms,set_throughput_ops_sec,set_success_rate
+Original (vunknown),git-mem,22.164297667331994,45.117603770224676,100.0
+Perf Improvements (v27fd005),git-mem,2.570924782194197,388.96509416605096,100.0
+Async Writes (vdb7f982),git-mem-sync,1.8099507503211498,552.5012212749791,100.0
+Async Writes (vdb7f982),git-mem-async,0.7326566381379962,1364.8958433536359,100.0

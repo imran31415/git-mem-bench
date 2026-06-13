@@ -1,0 +1,434 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MCP Memory Benchmark Results</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background-color: #f5f5f5;
+            padding:组建20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            border-radius: 10px;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .header .subtitle {
+            font-size: 1.2rem;
+            opacity: 0.9;
+        }
+        
+        .summary {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        
+        .summary h2 {
+            color: #667eea;
+            margin-bottom: 1rem;
+            border-bottom: 2px solid #f0f0f0;
+            padding-bottom: 0.5rem;
+        }
+        
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+            margin-top: 1rem;
+        }
+        
+        .summary-item {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .summary-item h3 {
+            color: #555;
+            margin-bottom: 0.5rem;
+            font-size: 1rem;
+        }
+        
+        .summary-item p {
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .table-container, .evolution-container, .async-comparison, .search-comparison {
+            background: white;
+            padding: 1.5rem;
+            border-radius: 10px;
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        }
+        
+        h3 {
+            color: #667eea;
+            margin-bottom: 1rem;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        
+        th {
+            background: #f8f9fa;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            border-bottom: 2px solid #e9ecef;
+        }
+        
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid #e9ecef;
+        }
+        
+        .server-name {
+            font-weight: 600;
+            color: #555;
+        }
+        
+        .no-data {
+            color: #999;
+            text-align: center;
+        }
+        
+        .timeline {
+            position: relative;
+            padding: 2rem 0;
+        }
+        
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 50px;
+            top: 0;
+            bottom: 0;
+            width: 2px;
+            background: #667eea;
+        }
+        
+        .timeline-item {
+            position: relative;
+            margin-bottom: 2rem;
+            padding-left: 80px;
+        }
+        
+        .timeline-marker {
+            position: absolute;
+            left: 40px;
+            top: 0;
+            width: 20px;
+            height: 20px;
+            background: #667eea;
+            border-radius: 50%;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+        
+        .timeline-content {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+            border-left: 4px solid #667eea;
+        }
+        
+        .improvements {
+            margin-top: 2rem;
+        }
+        
+        .improvement-item {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 8px;
+            margin-bottom: 1rem;
+            border-left: 4px solid #4CAF50;
+        }
+        
+        .improvement-value {
+            font-weight: bold;
+            color: #4CAF50;
+        }
+        
+        .positive {
+            color: #4CAF50;
+            font-weight: bold;
+        }
+        
+        .negative {
+            color: #f44336;
+            font-weight: bold;
+        }
+        
+        .performance-bar {
+            background: #e9ecef;
+            height: 24px;
+            border-radius: 12px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .performance-bar-fill {
+            background: linear-gradient(90deg, #4CAF50, #8BC34A);
+            height: 100%;
+            border-radius: 12px;
+            transition: width 0.3s ease;
+        }
+        
+        .performance-bar-label {
+            position: absolute;
+            right: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: white;
+            font-weight: bold;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+        }
+        
+        .note {
+            font-size: 0.9rem;
+            color: #666;
+            margin-top: 1rem;
+            font-style: italic;
+        }
+        
+        .footer {
+            text-align: center;
+            margin-top: 3rem;
+            padding: 1rem;
+            color: #666;
+            font-size: 0.9rem;
+            border-top: 1px solid #e9ecef;
+        }
+        
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            table {
+                font-size: 0.9rem;
+            }
+            
+            th, td {
+                padding: 0.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>MCP Memory Benchmark Results</h1>
+        <div class="subtitle">Performance comparison of git-mem and engram memory servers</div>
+    </div>
+    
+    <div class="summary">
+        <h2>Executive Summary</h2>
+        <div class="summary-grid">
+            <div class="summary-item">
+                <h3>Best SET Performance</h3>
+    <p>engram<br><small>0.50ms</small></p>
+            </div>
+            <div class="summary-item">
+                <h3>Best GET Performance</h3>
+    <p>engram<br><small>0.12ms</small></p>
+            </div>
+            <div class="summary-item">
+                <h3>Performance Improvement</h3>
+                <p>30x faster<br><small>git-mem SET evolution</small></p>
+            </div>
+            <div class="summary-item">
+                <h3>Async Improvement</h3>
+                <p>2.5x faster<br><small>git-mem SET async vs sync</small></p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="table-container">
+        <h3>Operation Latency Comparison (ms)</h3>
+        <table class="performance-table">
+            <thead>
+                <tr>
+                    <th>Server</th>
+    <th>DELETE</th><th>GET</th><th>LIST</th><th>SET</th>
+                </tr>
+            </thead>
+            <tbody>
+    <tr><td class="server-name">git-mem-sync</td><td style="background-color: hsl(57.98863850086131, 70%, 50%); color: white; font-weight: bold;">0.98ms</td><td style="background-color: hsl(109.01101861243349, 70%, 50%); color: white; font-weight: bold;">0.24ms</td><td style="background-color: hsl(113.31573627706422, 70%, 50%); color: white; font-weight: bold;">0.18ms</td><td style="background-color: hsl(0.0, 70%, 50%); color: white; font-weight: bold;">1.81ms</td></tr><tr><td class="server-name">git-mem-async</td><td style="background-color: hsl(103.26895754452427, 70%, 50%); color: white; font-weight: bold;">0.33ms</td><td style="background-color: hsl(109.77701769561128, 70%, 50%); color: white; font-weight: bold;">0.23ms</td><td style="background-color: hsl(112.52543847568508, 70%, 50%); color: white; font-weight: bold;">0.19ms</td><td style="background-color: hsl(75.03155564174901, 70%, 50%); color: white; font-weight: bold;">0.73ms</td></tr><tr><td class="server-name">engram</td><td style="background-color: hsl(112.78073961149877, 70%, 50%); color: white; font-weight: bold;">0.19ms</td><td style="background-color: hsl(117.91564991376589, 70%, 50%); color: white; font-weight: bold;">0.12ms</td><td style="background-color: hsl(120.0, 70%, 50%); color: white; font-weight: bold;">0.09ms</td><td style="background-color: hsl(90.89820997831771, 70%, 50%); color: white; font-weight: bold;">0.50ms</td></tr>
+            </tbody>
+        </table>
+    </div>
+    
+    <div class="table-container">
+        <h3>Operation Throughput Comparison (ops/sec)</h3>
+        <table class="performance-table">
+            <thead>
+                <tr>
+                    <th>Server</th>
+    <th>DELETE</th><th>GET</th><th>LIST</th><th>SET</th>
+                </tr>
+            </thead>
+            <tbody>
+    <tr><td class="server-name">git-mem-sync</td><td style="background-color: hsl(5.162195076420009, 70%, 50%); color: white; font-weight: bold;">1023.17/s</td><td style="background-color: hsl(38.74652676128335, 70%, 50%); color: white; font-weight: bold;">4085.24/s</td><td style="background-color: hsl(53.88135287188688, 70%, 50%); color: white; font-weight: bold;">5465.17/s</td><td style="background-color: hsl(0.0, 70%, 50%); color: white; font-weight: bold;">552.50/s</td></tr><tr><td class="server-name">git-mem-async</td><td style="background-color: hsl(27.457739461686543, 70%, 50%); color: white; font-weight: bold;">3055.98/s</td><td style="background-color: hsl(40.85437781385265, 70%, 50%); color: white; font-weight: bold;">4277.43/s</td><td style="background-color: hsl(50.381260762564665, 70%, 50%); color: white; font-weight: bold;">5146.05/s</td><td style="background-color: hsl(8.9102133656485, 70%, 50%); color: white; font-weight: bold;">1364.90/s</td></tr><tr><td class="server-name">engram</td><td style="background-color: hsl(51.46639123350462, 70%, 50%); color: white; font-weight: bold;">5244.98/s</td><td style="background-color: hsl(87.73703456121974, 70%, 50%); color: white; font-weight: bold;">8551.98/s</td><td style="background-color: hsl(120.0, 70%, 50%); color: white; font-weight: bold;">11493.58/s</td><td style="background-color: hsl(15.665411887525726, 70%, 50%); color: white; font-weight: bold;">1980.81/s</td></tr>
+            </tbody>
+        </table>
+    </div>
+    <p>Could not identify sync and async servers</p>
+    <div class="evolution-container">
+        <h3>Performance Evolution Timeline (SET Operation)</h3>
+        <div class="timeline">
+    
+            <div class="timeline-item">
+                <div class="timeline-marker">1</div>
+                <div class="timeline-content">
+                    <h4>Original (vunknown)</h4>
+                    <p><strong>Server:</strong> git-mem</p>
+                    <p><strong>SET Latency:</strong> 22.16ms</p>
+                    <p><strong>SET Throughput:</strong> 45 ops/sec</p>
+                </div>
+            </div>
+        
+            <div class="timeline-item">
+                <div class="timeline-marker">2</div>
+                <div class="timeline-content">
+                    <h4>Perf Improvements (v27fd005)</h4>
+                    <p><strong>Server:</strong> git-mem</p>
+                    <p><strong>SET Latency:</strong> 2.57ms</p>
+                    <p><strong>SET Throughput:</strong> 389 ops/sec</p>
+                </div>
+            </div>
+        
+            <div class="timeline-item">
+                <div class="timeline-marker">3</div>
+                <div class="timeline-content">
+                    <h4>Async Writes (vdb7f982)</h4>
+                    <p><strong>Server:</strong> git-mem-sync</p>
+                    <p><strong>SET Latency:</strong> 1.81ms</p>
+                    <p><strong>SET Throughput:</strong> 553 ops/sec</p>
+                </div>
+            </div>
+        
+            <div class="timeline-item">
+                <div class="timeline-marker">4</div>
+                <div class="timeline-content">
+                    <h4>Async Writes (vdb7f982)</h4>
+                    <p><strong>Server:</strong> git-mem-async</p>
+                    <p><strong>SET Latency:</strong> 0.73ms</p>
+                    <p><strong>SET Throughput:</strong> 1365 ops/sec</p>
+                </div>
+            </div>
+        
+        </div>
+    </div>
+    <div class="improvements"><h4>Performance Improvements</h4>
+            <div class="improvement-item">
+                <p><strong>Original (vunknown) → Perf Improvements (v27fd005):</strong></p>
+                <ul>
+                    <li>Latency improved by <span class="improvement-value">+88.4%</span></li>
+                    <li>Speedup: <span class="improvement-value">8.6x</span> faster</li>
+                    <li>Throughput increased by <span class="improvement-value">+762.1%</span></li>
+                </ul>
+            </div>
+            
+            <div class="improvement-item">
+                <p><strong>Perf Improvements (v27fd005) → Async Writes (vdb7f982):</strong></p>
+                <ul>
+                    <li>Latency improved by <span class="improvement-value">+29.6%</span></li>
+                    <li>Speedup: <span class="improvement-value">1.4x</span> faster</li>
+                    <li>Throughput increased by <span class="improvement-value">+42.0%</span></li>
+                </ul>
+            </div>
+            
+            <div class="improvement-item">
+                <p><strong>Async Writes (vdb7f982) → Async Writes (vdb7f982):</strong></p>
+                <ul>
+                    <li>Latency improved by <span class="improvement-value">+59.5%</span></li>
+                    <li>Speedup: <span class="improvement-value">2.5x</span> faster</li>
+                    <li>Throughput increased by <span class="improvement-value">+147.0%</span></li>
+                </ul>
+            </div>
+            </div>
+    <div class="search-comparison">
+        <h3>Search Performance Comparison</h3>
+        <table class="search-table">
+            <thead>
+                <tr>
+                    <th>Search Tool</th>
+                    <th>Latency</th>
+                    <th>Performance</th>
+                </tr>
+            </thead>
+            <tbody>
+    
+        <tr>
+            <td>git-mem-sync (memSearch)</td>
+            <td>4.35ms</td>
+            <td>
+                <div class="performance-bar">
+                    <div class="performance-bar-fill" style="width: 5%;"></div>
+                    <span class="performance-bar-label">5%</span>
+                </div>
+            </td>
+        </tr>
+        
+        <tr>
+            <td>git-mem-async (memSearch)</td>
+            <td>4.61ms</td>
+            <td>
+                <div class="performance-bar">
+                    <div class="performance-bar-fill" style="width: 1%;"></div>
+                    <span class="performance-bar-label">1%</span>
+                </div>
+            </td>
+        </tr>
+        
+            </tbody>
+        </table>
+        <p class="note">Note: Lower latency and higher percentage indicate better performance</p>
+    </div>
+    
+    <div class="footer">
+        <p>Report generated on 2026-06-13 19:29:33</p>
+        <p>MCP Memory Benchmark Framework - Open Source Benchmark Tool</p>
+    </div>
+</body>
+</html>
+    
