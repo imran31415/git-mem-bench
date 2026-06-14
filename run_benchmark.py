@@ -1,184 +1,203 @@
 #!/usr/bin/env python3
 """
-Updated MCP Memory Benchmark Runner
-Reads configuration from JSON file
+MCP Memory Benchmark Runner
+
+Compares git-mem, engram, and @modelcontextprotocol/server-memory across
+equivalent logical operations (WRITE, READ, SEARCH, DELETE, LIST).
+
+Each system uses its native MCP tool API via a server-specific adapter,
+so the benchmark tests real behaviour rather than forcing a common API.
 """
 import json
-import time
+import os
 import sys
+import time
 from datetime import datetime
 
-# Add current directory to path to import local modules
-sys.path.insert(0, '/home/dev/t/mcp-memory-benchmark/test_harness')
+# Locate this file's directory and add the test_harness sibling to sys.path
+REPO_ROOT = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, os.path.join(REPO_ROOT, "test_harness"))
 
 try:
-    from benchmark_suite import MCPMemoryBenchmark
-except ImportError:
-    print("Error: Could not import benchmark_suite module")
-    print("Make sure you're running from the correct directory")
+    from benchmark_suite import MCPMemoryBenchmark, generate_test_data
+except ImportError as e:
+    print(f"Error importing benchmark_suite: {e}")
     sys.exit(1)
 
-def load_config(config_file="config/benchmark_config.json"):
-    """Load benchmark configuration"""
-    with open(config_file, 'r') as f:
+
+def load_config(config_file: str = None) -> dict:
+    if config_file is None:
+        config_file = os.path.join(REPO_ROOT, "config", "benchmark_config.json")
+    with open(config_file) as f:
         return json.load(f)
 
-def main():
-    """Main benchmark runner"""
-    print("MCP Memory Server Benchmark")
-    print("="*80)
-    
-    # Load configuration
-    config = load_config()
-    
-    # Initialize benchmark
-    benchmark = MCPMemoryBenchmark()
-    
-    # Set up each server from config
-    servers = config["servers"]
-    benchmark_config = config["benchmark"]
-    
-    successful_setups = 0
-    
-    for server_name, server_config in servers.items():
-        if server_config.get("enabled", False):
-            print(f"\nSetting up {server_name}...")
-            print(f"  Description: {server_config.get('description', 'No description')}")
-            print(f"  Command: {' '.join(server_config['command'])}")
-            
-            if benchmark.setup_client(server_name, server_config["command"]):
-                print(f"  ✓ {server_name} setup successful")
-                successful_setups += 1
+
+def print_comparison_table(all_results: dict) -> None:
+    """Print a side-by-side latency and throughput table."""
+    ops = ["write", "read", "search", "delete", "list"]
+    servers = list(all_results.keys())
+
+    col_w = 28
+    label_w = 10
+
+    divider = "-" * (label_w + col_w * len(servers))
+    print("\n" + "=" * len(divider))
+    print("LATENCY COMPARISON   mean / p95 / throughput   (* = fastest for this op)")
+    print("=" * len(divider))
+
+    # Header
+    print(f"{'Op':<{label_w}}", end="")
+    for s in servers:
+        print(f"{s[:col_w-1]:<{col_w}}", end="")
+    print()
+    print(divider)
+
+    for op in ops:
+        # find best (lowest) non-zero mean
+        means = {s: all_results[s].get(op, {}).get("latency_mean_ms", 0) for s in servers}
+        valid = [m for m in means.values() if m > 0]
+        best = min(valid) if valid else None
+
+        print(f"{op.upper():<{label_w}}", end="")
+        for s in servers:
+            stats = all_results[s].get(op, {})
+            mean = stats.get("latency_mean_ms", 0)
+            p95  = stats.get("latency_p95_ms", 0)
+            tput = stats.get("throughput_ops_sec", 0)
+            sr   = stats.get("success_rate", 0)
+            if mean == 0 and sr == 0:
+                cell = "n/a"
             else:
-                print(f"  ✗ {server_name} setup failed")
-    
-    if successful_setups == 0:
-        print("\nNo servers successfully set up. Exiting.")
+                star = "*" if (best is not None and abs(mean - best) < 0.001) else " "
+                cell = f"{star}{mean:6.2f}ms  p95={p95:5.2f}  {tput:5.0f}/s"
+            print(f"{cell:<{col_w}}", end="")
+        print()
+
+    print(divider)
+
+
+def print_tradeoff_summary(servers_config: dict) -> None:
+    print("\n" + "=" * 70)
+    print("SYSTEM TRADEOFF SUMMARY")
+    print("=" * 70)
+    for name, cfg in servers_config.items():
+        if not cfg.get("enabled"):
+            continue
+        print(f"\n  {name}")
+        print(f"    Storage : {cfg.get('storage_model', 'unknown')}")
+        print(f"    Portable: {cfg.get('portability', 'unknown')}")
+        print(f"    Notes   : {cfg.get('description', '')}")
+
+
+def main() -> None:
+    print("MCP Memory Server Benchmark")
+    print("=" * 70)
+    print(f"Comparing git-mem, engram, and @modelcontextprotocol/server-memory")
+    print(f"Each system is tested via its own native MCP tool API.")
+    print()
+
+    config = load_config()
+    bench_cfg = config["benchmark"]
+    servers_cfg = config["servers"]
+
+    benchmark = MCPMemoryBenchmark()
+    benchmark.test_data = generate_test_data(bench_cfg["test_data_size"])
+
+    print(f"Config: {bench_cfg['test_data_size']} test items, "
+          f"{bench_cfg['crud_operations']} CRUD ops, "
+          f"{len(bench_cfg['search_queries'])} search queries")
+    print()
+
+    # ----------------------------------------------------------------
+    # Start servers
+    # ----------------------------------------------------------------
+    ok_servers = []
+    for name, cfg in servers_cfg.items():
+        if not cfg.get("enabled", False):
+            continue
+        print(f"Starting {name}...")
+        env = cfg.get("env")
+        if benchmark.setup_client(
+            name, cfg["command"],
+            adapter_type=cfg.get("adapter_type", "git-mem"),
+            env=env,
+        ):
+            ok_servers.append(name)
+            print(f"  ✓ {name} ready")
+        else:
+            print(f"  ✗ {name} failed to start")
+
+    if not ok_servers:
+        print("\nNo servers started — exiting.")
         return
-    
-    # Update benchmark parameters from config
-    # Generate test data using the function from benchmark_suite
-    from benchmark_suite import generate_test_data
-    benchmark.test_data = generate_test_data(benchmark_config["test_data_size"])
-    
-    print(f"\nBenchmark Configuration:")
-    print(f"  Test data size: {benchmark_config['test_data_size']}")
-    print(f"  CRUD operations: {benchmark_config['crud_operations']}")
-    print(f"  Concurrent threads: {benchmark_config['concurrent_threads']}")
-    print(f"  Search queries: {', '.join(benchmark_config['search_queries'])}")
-    
-    # Run benchmarks for each client
-    all_results = {}
-    
-    for client_name in benchmark.runner.clients.keys():
-        print(f"\n{'='*80}")
-        print(f"BENCHMARKING: {client_name}")
-        print(f"{'='*80}")
-        
-        start_time = time.time()
-        
-        # Run tests
-        benchmark.test_basic_crud(client_name, benchmark.test_data[:benchmark_config["crud_operations"]])
-        benchmark.test_search(client_name)
-        benchmark.test_concurrent_operations(client_name, num_threads=benchmark_config["concurrent_threads"])
-        
-        end_time = time.time()
-        
-        print(f"\nBenchmark completed in {end_time - start_time:.2f} seconds")
-        
-        # Get summary for this client
-        client_summary = {}
-        operations = set(r.operation.split('_')[0] for _, r in benchmark.runner.results 
-                        if _.startswith(client_name))
-        
-        for op in sorted(operations):
-            stats = benchmark.runner.get_summary_stats(client_name, op)
-            if stats:
-                client_summary[op] = stats
-        
-        all_results[client_name] = client_summary
-    
-    # Print comparative summary
-    print("\n" + "="*80)
-    print("COMPARATIVE SUMMARY")
-    print("="*80)
-    
-    # Compare basic operations
-    print("\nBasic Operations Performance (lower latency is better):")
-    print("-" * 80)
-    
-    # Find common operations
-    common_ops = set()
-    for client_name, summary in all_results.items():
-        common_ops.update(summary.keys())
-    
-    for op in sorted(common_ops):
-        if op in ["set", "get", "delete", "list"]:  # Basic operations
-            print(f"\n{op.upper()}:")
-            print("  " + "-" * 60)
-            for client_name in sorted(all_results.keys()):
-                if op in all_results[client_name]:
-                    stats = all_results[client_name][op]
-                    if stats.get("latency_mean_ms", 0) > 0:
-                        throughput = 1000 / stats["latency_mean_ms"]
-                        print(f"  {client_name:<15} {stats['latency_mean_ms']:7.2f} ms "
-                              f"(±{stats.get('latency_std_ms', 0):.2f}) "
-                              f"| {throughput:6.1f} ops/sec | "
-                              f"Success: {stats.get('success_rate', 0):.1f}%")
-    
-    # Save results
+
+    # ----------------------------------------------------------------
+    # Run benchmarks
+    # ----------------------------------------------------------------
+    all_results: dict = {}
+
+    for name in ok_servers:
+        benchmark.run_benchmark(
+            name,
+            crud_count=bench_cfg["crud_operations"],
+            search_queries=bench_cfg["search_queries"],
+        )
+
+        # Collect per-operation stats
+        ops_in_results = {
+            r.operation.rsplit("_", 1)[0]
+            for _, r in benchmark.runner.results
+            if _ == name
+        }
+        all_results[name] = {
+            op: benchmark.runner.get_summary_stats(name, op)
+            for op in ops_in_results
+        }
+
+    # ----------------------------------------------------------------
+    # Report
+    # ----------------------------------------------------------------
+    print_comparison_table(all_results)
+    print_tradeoff_summary(servers_cfg)
+
+    # ----------------------------------------------------------------
+    # Persist results
+    # ----------------------------------------------------------------
+    out_dir = bench_cfg["output_directory"]
+    os.makedirs(os.path.join(out_dir, "raw"), exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    results_file = f"{benchmark_config['output_directory']}/raw/comparative_benchmark_{timestamp}.json"
-    
-    comparative_results = {
+    out_file = os.path.join(out_dir, "raw", f"benchmark_{timestamp}.json")
+
+    export = {
         "timestamp": timestamp,
-        "config": benchmark_config,
-        "servers": {name: config for name, config in servers.items() if config.get("enabled", False)},
+        "servers": {
+            n: {k: v for k, v in c.items() if k != "env"}
+            for n, c in servers_cfg.items()
+            if c.get("enabled")
+        },
         "results": all_results,
-        "raw_results": [
+        "raw": [
             {
-                "client": client_name,
-                "operation": result.operation,
-                "success": result.success,
-                "latency_ms": result.latency_ms,
-                "memory_usage_mb": result.memory_usage_mb,
-                "cpu_percent": result.cpu_percent,
-                "error_message": result.error_message,
+                "server": cn,
+                "operation": r.operation,
+                "success": r.success,
+                "latency_ms": r.latency_ms,
+                "error": r.error_message,
             }
-            for client_name, result in benchmark.runner.results
-        ]
+            for cn, r in benchmark.runner.results
+        ],
     }
-    
-    with open(results_file, 'w') as f:
-        json.dump(comparative_results, f, indent=2)
-    
-    print(f"\nResults saved to: {results_file}")
-    
+    with open(out_file, "w") as f:
+        json.dump(export, f, indent=2)
+
+    print(f"\nResults saved → {out_file}")
+
+    # ----------------------------------------------------------------
     # Cleanup
+    # ----------------------------------------------------------------
     benchmark.cleanup()
-    
-    print("\n" + "="*80)
-    print("BENCHMARK COMPLETED")
-    print("="*80)
-    
-    # Generate quick analysis
-    print("\nQUICK ANALYSIS:")
-    print("-" * 40)
-    
-    # Find fastest for each basic operation
-    for op in ["set", "get", "delete", "list"]:
-        fastest = None
-        fastest_latency = float('inf')
-        
-        for client_name, summary in all_results.items():
-            if op in summary:
-                latency = summary[op].get("latency_mean_ms", float('inf'))
-                if latency < fastest_latency:
-                    fastest_latency = latency
-                    fastest = client_name
-        
-        if fastest:
-            print(f"Fastest {op.upper()}: {fastest} ({fastest_latency:.2f} ms)")
+    print("\nBenchmark complete.")
+
 
 if __name__ == "__main__":
     main()

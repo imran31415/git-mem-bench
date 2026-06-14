@@ -2,30 +2,44 @@
   "servers": {
     "git-mem-sync": {
       "command": ["git-mem", "-repo", "/tmp/benchmark-git-mem-sync"],
+      "adapter_type": "git-mem",
       "enabled": true,
-      "description": "git-mem vdb7f982 (synchronous writes)",
-      "version": "db7f982"
+      "description": "git-mem (synchronous writes). Every write commits immediately to git.",
+      "storage_model": "key-value + git",
+      "portability": "highest — full git history, transferable to any git host"
     },
     "git-mem-async": {
       "command": ["git-mem", "-repo", "/tmp/benchmark-git-mem-async", "-async-writes", "10ms"],
+      "adapter_type": "git-mem",
       "enabled": true,
-      "description": "git-mem vdb7f982 (async writes, 10ms flush)",
-      "version": "db7f982",
-      "async_writes": true
+      "description": "git-mem (async writes, 10ms flush). Batches commits for throughput.",
+      "storage_model": "key-value + git",
+      "portability": "highest — same git backing as sync variant"
     },
     "engram": {
-      "command": ["/home/ubuntu/go/bin/engram", "mcp", "--tools=agent"],
+      "command": ["/home/ubuntu/go/bin/engram", "mcp", "--tools=all", "--project=benchmark"],
+      "adapter_type": "engram",
       "enabled": true,
-      "description": "SQLite-based memory with full-text search and 19 tools",
-      "version": "1.16.1"
+      "description": "engram — session/observation store backed by SQLite. No direct key lookup; reads use full-text search.",
+      "storage_model": "session/observation + SQLite",
+      "portability": "medium — SQLite file is portable but no git history"
+    },
+    "mcp-server-memory": {
+      "command": ["npx", "-y", "@modelcontextprotocol/server-memory"],
+      "adapter_type": "mcp-knowledge-graph",
+      "enabled": true,
+      "description": "Official MCP knowledge-graph memory. Stores entities with typed observations and relations.",
+      "storage_model": "knowledge graph + JSONL file",
+      "portability": "medium — single JSONL file, no versioning",
+      "env": {
+        "MEMORY_FILE_PATH": "/tmp/benchmark-mcp-server-memory.jsonl"
+      }
     }
   },
   "benchmark": {
     "test_data_size": 100,
     "crud_operations": 50,
     "search_queries": ["test", "item", "document", "benchmark"],
-    "concurrent_threads": 3,
-    "output_directory": "/home/dev/t/mcp-memory-benchmark/results",
-    "git_mem_changes": "feat: optional async write-back commits (-async-writes)"
+    "output_directory": "/home/dev/git-mem-bench/results"
   }
 }

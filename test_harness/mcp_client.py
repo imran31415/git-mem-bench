@@ -33,10 +33,12 @@ class BenchmarkResult:
 
 class MCPClient:
     """Generic MCP client for benchmarking memory servers"""
-    
-    def __init__(self, command: List[str], name: str = "unknown"):
+
+    def __init__(self, command: List[str], name: str = "unknown",
+                 extra_env: Optional[Dict[str, str]] = None):
         self.command = command
         self.name = name
+        self.extra_env = extra_env or {}
         self.process = None
         self.stdin = None
         self.stdout = None
@@ -46,16 +48,21 @@ class MCPClient:
         self.response_queue = queue.Queue()
         self.reader_thread = None
         self.initialized = False
-        
+
     def start(self):
         """Start the MCP server process"""
+        import os
+        env = os.environ.copy()
+        env.update(self.extra_env)
+
         self.process = subprocess.Popen(
             self.command,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            bufsize=1
+            bufsize=1,
+            env=env,
         )
         
         # Start response reader thread
@@ -231,26 +238,38 @@ class BenchmarkRunner:
     def get_summary_stats(self, client_name: str, operation: str) -> Dict[str, Any]:
         """Get summary statistics for an operation type"""
         client_results = [
-            r for name, r in self.results 
+            r for name, r in self.results
             if name == client_name and r.operation.startswith(operation)
         ]
-        
+
         if not client_results:
             return {}
-        
-        latencies = [r.latency_ms for r in client_results if r.success]
+
+        latencies = sorted(r.latency_ms for r in client_results if r.success)
         successes = sum(1 for r in client_results if r.success)
-        
+
+        def percentile(data, pct):
+            if not data:
+                return 0
+            k = (len(data) - 1) * pct / 100
+            lo, hi = int(k), min(int(k) + 1, len(data) - 1)
+            return data[lo] + (data[hi] - data[lo]) * (k - lo)
+
+        mean_ms = statistics.mean(latencies) if latencies else 0
         return {
             "operation": operation,
             "total_operations": len(client_results),
             "successful_operations": successes,
-            "success_rate": successes / len(client_results) * 100,
-            "latency_mean_ms": statistics.mean(latencies) if latencies else 0,
+            "success_rate": successes / len(client_results) * 100 if client_results else 0,
+            "latency_mean_ms": mean_ms,
             "latency_median_ms": statistics.median(latencies) if latencies else 0,
             "latency_std_ms": statistics.stdev(latencies) if len(latencies) > 1 else 0,
-            "latency_min_ms": min(latencies) if latencies else 0,
-            "latency_max_ms": max(latencies) if latencies else 0,
+            "latency_min_ms": latencies[0] if latencies else 0,
+            "latency_max_ms": latencies[-1] if latencies else 0,
+            "latency_p75_ms": percentile(latencies, 75),
+            "latency_p95_ms": percentile(latencies, 95),
+            "latency_p99_ms": percentile(latencies, 99),
+            "throughput_ops_sec": (1000.0 / mean_ms) if mean_ms > 0 else 0,
             "avg_memory_delta_mb": statistics.mean([r.memory_usage_mb for r in client_results]),
             "avg_cpu_delta": statistics.mean([r.cpu_percent for r in client_results]),
         }

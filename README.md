@@ -1,357 +1,139 @@
-# 🚀 git-mem Benchmark Suite
+# git-mem Benchmark Suite
 
-<div align="center">
+**Honest performance comparison of MCP memory servers** — git-mem vs engram vs @modelcontextprotocol/server-memory.
 
-![GitHub stars](https://img.shields.io/badge/⭐-Benchmark%20Results-brightgreen)
-![GitHub](https://img.shields.io/badge/MCP-Memory%20Protocol-blue)
-![GitHub](https://img.shields.io/badge/Performance-Comparison-orange)
-![GitHub](https://img.shields.io/badge/License-MIT-green)
-
-**Comprehensive performance benchmarking for git-mem MCP memory server**
-*Compare git-mem against engram and track performance evolution*
-
-[📊 View Latest Results](#-latest-results) • [⚡ Quick Start](#-quick-start) • [📈 Visualizations](#-visualizations) • [🔍 Methodology](#-methodology)
-
-</div>
+The goal is a clear, reproducible picture of the **performance tradeoffs** so you can make an informed choice. git-mem is not the fastest option on raw latency, but it offers something the others don't: your entire memory store lives in a git repository that you can clone, branch, diff, and restore from any machine.
 
 ---
 
-## 📋 Table of Contents
+## Systems compared
 
-- [✨ Overview](#-overview)
-- [🚀 Key Findings](#-key-findings)
-- [📊 Latest Results](#-latest-results)
-- [⚡ Quick Start](#-quick-start)
-- [🔧 Installation](#-installation)
-- [📈 Visualizations](#-visualizations)
-- [🔍 Methodology](#-methodology)
-- [📁 Repository Structure](#-repository-structure)
-- [🤝 Contributing](#-contributing)
-- [📄 License](#-license)
+| System | Storage model | Portability | Tested via |
+|---|---|---|---|
+| **git-mem (sync)** | Key-value + git commits | Highest — full git history, push to any host | `memSet` / `memGet` / `memSearch` / `memDelete` |
+| **git-mem (async)** | Key-value + git commits (batched 10 ms) | Highest | Same tools, async flush |
+| **engram** | Session / observation + SQLite | Medium — portable SQLite file | `mem_save` / `mem_search` / `mem_delete` |
+| **mcp-server-memory** | Knowledge graph + JSONL file | Medium — single file, no versioning | `create_entities` / `open_nodes` / `search_nodes` / `delete_entities` |
+
+> **Important note on engram READ:** engram has no direct key-lookup. The benchmark's READ operation is implemented as `mem_search(query=key, limit=1)`, which includes full-text search overhead. All other READ timings use direct key access.
 
 ---
 
-## ✨ Overview
+## Latest results (2026-06-14)
 
-This benchmark suite provides comprehensive performance analysis of **git-mem**, a Git-backed MCP memory server, compared against **engram**, a SQLite-based MCP memory solution. The benchmark tracks performance evolution across git-mem versions and evaluates the impact of new features like **async writes**.
+```
+Op        git-mem-sync               git-mem-async              engram                     mcp-server-memory
+------------------------------------------------------------------------------------------------------------------------------------------
+WRITE      1.85ms  p95= 2.90   541/s  *0.53ms  p95= 1.00  1885/s   6.67ms  p95=12.27   150/s   1.80ms  p95= 2.39   556/s
+READ      *0.14ms  p95= 0.18  7016/s   0.15ms  p95= 0.27  6479/s   6.00ms  p95= 9.39   167/s   1.00ms  p95= 1.65  1003/s
+SEARCH     9.69ms  p95=11.57   103/s  10.60ms  p95=13.03    94/s   5.68ms  p95= 6.90   176/s  *1.94ms  p95= 2.72   515/s
+DELETE     1.32ms  p95= 2.22   756/s  *0.45ms  p95= 0.60  2203/s   0.20ms  p95= 0.32  5029/s   1.48ms  p95= 2.37   678/s
+LIST      *0.28ms  p95= 0.28  3555/s   0.49ms  p95= 0.49  2027/s   1.78ms  p95= 1.78   561/s   1.43ms  p95= 1.43   700/s
 
-<div align="center">
-
-### 📊 Performance Comparison Summary
-
-| Server | SET Latency | GET Latency | DELETE Latency | Search Latency |
-|--------|-------------|-------------|----------------|----------------|
-| git-mem (sync) | 1.81 ms | 0.36 ms | 1.21 ms | ~4.5 ms |
-| **git-mem (async)** | **0.82 ms** | 0.28 ms | **0.36 ms** | ~4.6 ms |
-| **engram** | **0.57 ms** | **0.18 ms** | **0.18 ms** | ~8.2 ms |
-
-</div>
-
-## 🚀 Key Findings
-
-### 🎯 **Major Performance Improvements**
-
-1. **30x SET Speedup**: git-mem SET operations improved from **22.16ms** (original) to **0.82ms** (async)
-2. **Async Writes Impact**: 2.5x faster SET operations with `-async-writes` enabled
-3. **Competitive Search**: git-mem search is **1.8x faster** than engram
-4. **Reduced Gap**: git-mem with async is now **1.4x-2.0x** slower than engram (vs 5.4x-6.7x slower in sync mode)
-
-### 📈 **Performance Evolution Timeline**
-
-```mermaid
-graph LR
-    A[Original<br/>22.16ms SET] --> B[Perf Improvements<br/>2.57ms SET]
-    B --> C[Sync Mode<br/>1.81ms SET]
-    C --> D[Async Mode<br/>0.82ms SET]
-    
-    style A fill:#ff6b6b
-    style B fill:#ffd166
-    style C fill:#06d6a0
-    style D fill:#118ab2
+* = fastest for this operation
 ```
 
-## 📊 Latest Results
+### What the numbers mean
 
-### Operation Performance Comparison
+**WRITE** — git-mem-async wins (0.53 ms). Every git-mem write commits to git; async mode batches those commits over a 10 ms window, giving 3.5× the throughput of sync mode. engram is slowest here (6.67 ms) because it opens a SQLite transaction and runs FTS index updates. mcp-server-memory writes to a JSONL file and is comparable to git-mem-sync.
 
-| Operation | git-mem (sync) | git-mem (async) | engram | Async Improvement |
-|-----------|----------------|-----------------|--------|-------------------|
-| **SET** | 1.81 ms | **0.82 ms** | 0.57 ms | **2.2x faster** |
-| **GET** | 0.36 ms | 0.28 ms | **0.18 ms** | 1.3x faster |
-| **DELETE** | 1.21 ms | **0.36 ms** | 0.18 ms | **3.4x faster** |
-| **LIST** | 0.43 ms | 0.23 ms | **0.12 ms** | 1.9x faster |
-| **SEARCH** | **4.35 ms** | **4.61 ms** | 8.46 ms | **git-mem wins** |
+**READ** — git-mem wins decisively (0.14 ms, ~7 000 ops/s) because it caches values in memory and serves reads without hitting disk. mcp-server-memory is 7× slower (file scan). engram is 43× slower — because it has no direct key lookup; this benchmark measures search-by-title latency instead.
 
-### Throughput Comparison (ops/sec)
+**SEARCH** — mcp-server-memory wins (1.94 ms). engram is 3× slower than mcp-server-memory. Both git-mem variants are 5-6× slower than mcp-server-memory; git-mem's full-text search scans git blobs rather than an index.
 
-<div align="center">
+**DELETE** — engram is fastest (0.20 ms) because its deletes are soft-deletes (a flag flip in SQLite). git-mem-async batches the removal commit (0.45 ms). mcp-server-memory rewrites the JSONL file on delete (1.48 ms). git-mem-sync commits synchronously (1.32 ms).
 
-```bash
-SET Throughput:
-├─ git-mem-sync:    553 ops/sec
-├─ git-mem-async:  1,366 ops/sec  (+147%)
-└─ engram:         1,740 ops/sec
+**LIST** — git-mem-async is fastest (0.28 ms, memory-resident key index). Everything else takes >1 ms.
 
-GET Throughput:
-├─ git-mem-sync:  2,808 ops/sec
-├─ git-mem-async: 3,627 ops/sec  (+29%)
-└─ engram:        5,484 ops/sec
-```
+---
 
-</div>
+## When to use what
 
-## ⚡ Quick Start
+| You want… | Best choice |
+|---|---|
+| Memory that survives pod restarts, can be cloned to another machine, and has full audit history | **git-mem** |
+| Best raw write throughput and you're OK with a SQLite file | **engram** (but note slow reads-by-key) |
+| Structured entity/relation graph, not just K/V | **mcp-server-memory** |
+| Fastest full-text search | **mcp-server-memory** |
+| Fastest direct key reads | **git-mem** |
 
-### Clone and Run Benchmarks
+---
+
+## Quick start
 
 ```bash
-# Clone the repository
-git clone https://github.com/imran31415/git-mem-bench.git
-cd git-mem-bench
+# Install dependencies
+pip install -r requirements.txt
 
-# Run setup
-./setup.sh
-
-# Run comprehensive benchmark
+# Run benchmark (all 4 systems)
 python3 run_benchmark.py
 
-# Run async writes comparison
-python3 run_async_benchmark.py
+# Results are saved to results/raw/benchmark_<timestamp>.json
 ```
-
-### View Results
-
-```bash
-# Generate interactive HTML report
-python3 create_html_report.py
-open results/visualizations/benchmark_report.html
-
-# Generate text visualizations
-python3 text_visualizations.py
-
-# Export to CSV for spreadsheet analysis
-python3 create_csv_exports.py
-```
-
-## 🔧 Installation
 
 ### Prerequisites
 
-- **Python 3.10+**
-- **Go 1.22+** (for installing MCP servers)
-- **git-mem**: `go install github.com/imran31415/git-mem/cmd/git-mem@latest`
-- **engram**: `go install github.com/Gentleman-Programming/engram/cmd/engram@latest`
+| System | Install |
+|---|---|
+| git-mem | `go install github.com/git-mem/git-mem@latest` or [releases](https://github.com/git-mem/git-mem/releases) |
+| engram | `go install github.com/Gentleman-Programming/engram/cmd/engram@latest` |
+| mcp-server-memory | auto-fetched via `npx -y @modelcontextprotocol/server-memory` (Node.js required) |
 
-### Automated Setup
+---
 
-```bash
-# Run the setup script
-./setup.sh
+## How the benchmark works
 
-# Expected output:
-# ✓ git-mem is installed
-# ✓ engram is installed
-# ✓ Python virtual environment created
-# ✓ Required packages installed
-```
+The framework uses a **per-server adapter** (`test_harness/adapters.py`) that maps four logical operations to each system's actual MCP tools:
 
-### Manual Installation
+| Logical op | git-mem | engram | mcp-server-memory |
+|---|---|---|---|
+| WRITE | `memSet` | `mem_save` | `create_entities` |
+| READ | `memGet` | `mem_search(key, limit=1)` ¹ | `open_nodes` |
+| SEARCH | `memSearch` | `mem_search` | `search_nodes` |
+| DELETE | `memDelete` | `mem_delete(obs_id)` ² | `delete_entities` |
+| LIST | `memList` | `mem_context` | `read_graph` |
 
-```bash
-# Install Python dependencies
-pip install psutil pandas matplotlib seaborn
+¹ engram has no key-based read; we search by title. This inflates read latency for engram.  
+² engram deletes by observation_id returned at write time; the adapter tracks this mapping.
 
-# Install MCP servers
-go install github.com/imran31415/git-mem/cmd/git-mem@latest
-go install github.com/Gentleman-Programming/engram/cmd/engram@latest
+Each operation is measured with `time.perf_counter`, and stats include mean, median, p75, p95, p99, and throughput (ops/s).
 
-# Add Go binaries to PATH
-export PATH=$PATH:$(go env GOPATH)/bin
-```
+---
 
-## 📈 Visualizations
-
-### Interactive HTML Report
-
-<div align="center">
-
-![HTML Report Preview](https://img.shields.io/badge/📊-Interactive%20Report-blueviolet)
-*Color-coded performance tables, evolution timeline, and comparison charts*
-
-</div>
-
-Generate with: `python3 create_html_report.py`
-
-### Text-Based Visualizations
-
-```bash
-# Generate ASCII performance charts
-python3 text_visualizations.py
-
-# Example output:
-==============================================================
-               OPERATION LATENCY (ms) - Lower is better              
-==============================================================
-
-git-mem-sync:
-  set            1.81 ██████████████████████████████████████████████████
-  get            0.36 ████████
-  delete         1.21 ████████████████████████
-  list           0.43 █████████
-
-git-mem-async:
-  set            0.82 ████████████████
-  get            0.28 ███████
-  delete         0.36 ████████
-  list           0.23 █████
-```
-
-### CSV Export for Spreadsheet Analysis
-
-```bash
-# Create Excel/Sheets compatible exports
-python3 create_csv_exports.py
-
-# Files created:
-# • detailed_results_[timestamp].csv
-# • comparison_summary_[timestamp].csv
-# • performance_evolution_[timestamp].csv
-```
-
-## 🔍 Methodology
-
-### Benchmark Configuration
-
-- **Test Data**: 100 items with small/medium/large values
-- **Operations**: 50 SET/GET/DELETE/LIST operations each
-- **Concurrency**: 3 simultaneous clients
-- **Search**: 4 query patterns (test, item, document, benchmark)
-- **Environment**: Ubuntu 24.04, 4 vCPUs, 8GB RAM
-
-### Test Categories
-
-1. **Basic CRUD Operations**
-   - SET: Create/update memory entries
-   - GET: Retrieve existing entries
-   - DELETE: Remove entries
-   - LIST: List all keys with optional prefix filtering
-
-2. **Search Performance**
-   - Full-text search across keys, values, and tags
-   - Multiple query patterns
-   - Case-insensitive substring matching
-
-3. **Concurrent Access**
-   - Multiple simultaneous clients
-   - Mixed read/write workloads
-   - Conflict scenario testing
-
-4. **Feature Testing**
-   - Tool discovery and availability
-   - Special features (git-mem code mode, engram FTS5)
-   - Configuration flexibility
-
-### Measurement Approach
-
-- **Latency**: `time.perf_counter()` with nanosecond precision
-- **Throughput**: Operations per second calculation
-- **Success Rate**: Error tracking and recovery
-- **Statistical Analysis**: Mean, median, std dev, percentiles
-- **Resource Monitoring**: Memory, CPU, disk I/O (when available)
-
-## 📁 Repository Structure
+## Repository structure
 
 ```
 git-mem-bench/
-├── 📄 README.md                  # This documentation
-├── ⚡ setup.sh                   # Automated setup script
-├── 📋 requirements.txt          # Python dependencies
-├── 📊 run_benchmark.py          # Main benchmark runner
-├── 🔄 run_async_benchmark.py    # Async writes comparison
-├── 📈 create_visualizations.py  # Graphical visualization
-├── 📱 create_html_report.py     # HTML report generator
-├── 📊 create_csv_exports.py     # CSV data export
-├── 📋 text_visualizations.py    # Text-based visualizations
-├── ⚙️ config/
-│   └── benchmark_config.json    # Server configurations
-├── 🧪 test_harness/
-│   ├── mcp_client.py           # Generic MCP client wrapper
-│   └── benchmark_suite.py      # Benchmark test suite
-├── 📊 results/
-│   ├── 📁 raw/                 # Raw benchmark data (JSON)
-│   ├── 📁 processed/           # Aggregated analysis data
-│   └── 📁 visualizations/      # Charts, reports, exports
-└── 📚 docs/
-    └── 📁 final_report/        # Detailed analysis reports
-```
-
-## 🤝 Contributing
-
-We welcome contributions to improve the benchmark suite!
-
-### How to Contribute
-
-1. **Fork the repository**
-2. **Create a feature branch**
-   ```bash
-   git checkout -b feature/improvement-name
-   ```
-3. **Add new MCP servers** to `config/benchmark_config.json`
-4. **Implement new test scenarios** in `test_harness/benchmark_suite.py`
-5. **Submit a pull request** with clear description
-
-### Adding New MCP Servers
-
-1. Install the MCP server
-2. Add configuration to `config/benchmark_config.json`:
-   ```json
-   "new-server": {
-     "command": ["server-binary", "args"],
-     "enabled": true,
-     "description": "New MCP memory server"
-   }
-   ```
-3. Test with benchmark framework
-4. Run comparison analysis
-
-### Future Enhancements
-
-- [ ] Add more MCP memory solutions (SimpleMem, codebase-memory-mcp)
-- [ ] Scale testing with 10k+ entries
-- [ ] Resource monitoring with psutil
-- [ ] Automated CI/CD benchmarking pipeline
-- [ ] Docker container for consistent environment
-
-## 📄 License
-
-This benchmark suite is open source and available under the **MIT License**.
-
-```
-MIT License
-
-Copyright (c) 2026 git-mem Benchmark Suite
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
+├── run_benchmark.py          # Main entry point
+├── config/
+│   └── benchmark_config.json # Server commands, adapter types, test params
+├── test_harness/
+│   ├── adapters.py           # Per-server operation adapters
+│   ├── benchmark_suite.py    # Test orchestration
+│   └── mcp_client.py         # MCP JSON-RPC client + stats
+└── results/
+    └── raw/                  # JSON output from each run
 ```
 
 ---
 
-<div align="center">
+## Reproducing results
 
-### 🎯 **Benchmark-Driven Development**
+```bash
+# Clean state
+rm -rf /tmp/benchmark-git-mem-*  /tmp/benchmark-mcp-server-memory.jsonl
 
-*This benchmark suite helps developers make informed decisions about MCP memory solutions based on real performance data.*
+# Run
+python3 run_benchmark.py
+```
 
-**Maintained by the git-mem community • [Report Issues](https://github.com/imran31415/git-mem-bench/issues)**
+Results vary by hardware and load. On this machine (Linux container, 2-3 vCPU):
+- git-mem latencies are dominated by git process spawn + commit overhead
+- engram latencies include SQLite FTS index maintenance
+- mcp-server-memory latencies include Node.js startup (amortised after warm-up)
 
-[⬆ Back to Top](#-git-mem-benchmark-suite)
+---
 
-</div>
+## License
+
+MIT
