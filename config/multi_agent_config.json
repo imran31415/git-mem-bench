@@ -1,0 +1,74 @@
+{
+  "scenarios": {
+    "single_agent_long_conversation": {
+      "enabled": true,
+      "num_turns": 20,
+      "description": "Single agent maintaining context across 20 conversation turns"
+    },
+    "multi_agent_collaborative": {
+      "enabled": true,
+      "num_agents": 3,
+      "tasks_per_agent": 5,
+      "description": "Multiple agents collaborating on shared memory"
+    },
+    "agent_handoff": {
+      "enabled": true,
+      "num_handlers": 4,
+      "items_per_handler": 3,
+      "description": "Task escalation across multiple handlers"
+    },
+    "session_recovery": {
+      "enabled": true,
+      "sessions": 5,
+      "items_per_session": 10,
+      "description": "Agent resuming work from previous sessions"
+    },
+    "concurrent_contention": {
+      "enabled": true,
+      "num_agents": 10,
+      "operations_per_agent": 5,
+      "description": "Multiple agents contending for shared memory keys"
+    },
+    "error_recovery": {
+      "enabled": true,
+      "num_agents": 5,
+      "error_rate": 0.2,
+      "description": "Agents recovering from simulated errors"
+    },
+    "complex_search": {
+      "enabled": true,
+      "num_agents": 3,
+      "searches_per_agent": 10,
+      "description": "Complex search patterns with various query types"
+    },
+    "batch_vs_streaming": {
+      "enabled": true,
+      "batch_size": 50,
+      "streaming_chunk": 5,
+      "description": "Compare batched vs streaming write operations"
+    },
+    "large_payloads": {
+      "enabled": true,
+      "sizes": [1000, 10000, 100000],
+      "description": "Test with large data payloads (bytes)"
+    },
+    "special_characters": {
+      "enabled": true,
+      "description": "Test with unicode, emojis, special characters"
+    },
+    "hierarchical_structure": {
+      "enabled": true,
+      "num_workers": 4,
+      "tasks_per_worker": 3,
+      "description": "Coordinator delegating to worker agents"
+    },
+    "memory_eviction": {
+      "enabled": true,
+      "initial_items": 50,
+      "iterations": 20,
+      "description": "Continuous write/delete cycles testing cleanup"
+    }
+  },
+  "output_directory": "/home/dev/git-mem-bench/results/multi_agent",
+  "clear_between_scenarios": true
+}

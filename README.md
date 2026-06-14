@@ -65,11 +65,35 @@ LIST      *0.28ms  p95= 0.28  3555/s   0.49ms  p95= 0.49  2027/s   1.78ms  p95= 
 # Install dependencies
 pip install -r requirements.txt
 
-# Run benchmark (all 4 systems)
+# Run basic benchmark (all 4 systems)
 python3 run_benchmark.py
+
+# Run multi-agent benchmarks (simulates real-world MCP scenarios)
+python3 run_multi_agent_benchmark.py
 
 # Results are saved to results/raw/benchmark_<timestamp>.json
 ```
+
+### Multi-Agent Scenarios
+
+The `run_multi_agent_benchmark.py` script simulates real-world MCP multi-turn use cases with:
+
+| Scenario | Description | Agents | Operations |
+|----------|-------------|--------|------------|
+| **Long Conversation** | Single agent maintaining context across turns | 1 | ~50 |
+| **Multi-Agent Collaborative** | Multiple agents sharing memory | 3-15 | ~50 |
+| **Agent Handoff** | Task escalation across handlers | 4 | ~30 |
+| **Session Recovery** | Agent resuming from previous sessions | 5 | ~60 |
+| **Concurrent Contention** | Agents contending for shared keys | 10 | ~100 |
+| **Error Recovery** | Agents recovering from failures | 5 | ~30 |
+| **Complex Search** | Multiple search patterns | 3 | ~30 |
+| **Batch vs Streaming** | Batched vs individual writes | 1 | ~100 |
+| **Large Payloads** | Testing large data storage | 1 | ~6 |
+| **Special Characters** | Unicode, emojis, edge cases | 1 | ~12 |
+| **Hierarchical Structure** | Coordinator + workers | 5 | ~25 |
+| **Memory Eviction** | Write/delete cycles | 1 | ~140 |
+
+Each scenario includes mock LLM decision making with realistic think times and simulated agent behavior.
 
 ### Prerequisites
 
@@ -104,15 +128,18 @@ Each operation is measured with `time.perf_counter`, and stats include mean, med
 
 ```
 git-mem-bench/
-├── run_benchmark.py          # Main entry point
+├── run_benchmark.py               # Main entry point (basic benchmarks)
+├── run_multi_agent_benchmark.py  # Multi-agent scenario benchmarks
 ├── config/
-│   └── benchmark_config.json # Server commands, adapter types, test params
+│   ├── benchmark_config.json     # Server commands, adapter types
+│   └── multi_agent_config.json    # Multi-agent scenario configuration
 ├── test_harness/
-│   ├── adapters.py           # Per-server operation adapters
-│   ├── benchmark_suite.py    # Test orchestration
-│   └── mcp_client.py         # MCP JSON-RPC client + stats
+│   ├── adapters.py               # Per-server operation adapters
+│   ├── benchmark_suite.py        # Basic test orchestration
+│   ├── mcp_client.py             # MCP JSON-RPC client + stats
+│   └── multi_agent_benchmark.py  # Multi-agent benchmark suite
 └── results/
-    └── raw/                  # JSON output from each run
+    └── raw/                       # JSON output from each run
 ```
 
 ---
