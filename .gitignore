@@ -22,6 +22,7 @@ wheels/
 
 # Virtual Environment
 venv/
+venv_viz/
 env/
 ENV/
 .env
@@ -47,9 +48,9 @@ Thumbs.db
 /tmp/benchmark-*
 /tmp/test-*
 
-# Results (large files - consider adding selectively)
-# results/raw/*.json
-# results/raw/*_testdata.json
+# Results - exclude large raw data files
+results/raw/*.json
+results/raw/*_testdata.json
 
 # Test data
 *.testdata.json
@@ -61,3 +62,8 @@ logs/
 # Local config overrides
 config/local_*.json
 *.local.json
+
+# Generated visualizations (can be regenerated)
+results/visualizations/*.png
+results/visualizations/*.html
+results/visualizations/*.csv
