@@ -1,6 +1,6 @@
 # git-mem Benchmark Suite
 
-**Honest performance comparison of MCP memory servers** — git-mem vs engram vs @modelcontextprotocol/server-memory.
+performance comparison of MCP memory servers** — git-mem vs engram vs @modelcontextprotocol/server-memory.
 
 The goal is a clear, reproducible picture of the **performance tradeoffs** so you can make an informed choice. git-mem is not the fastest option on raw latency, but it offers something the others don't: your entire memory store lives in a git repository that you can clone, branch, diff, and restore from any machine.
 
