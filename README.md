@@ -111,6 +111,40 @@ The point of including it is to make the real tradeoff explicit. A vector store 
 
 Out of the box, with only numpy installed, you get the numpy index + hashing embedder — fully runnable with **zero extra dependencies**. The hashing embedder only matches documents that share literal tokens, so its SEARCH results approximate keyword overlap rather than true semantic recall; the runner prints a clear note when it is in use. Installing `sentence-transformers` and/or `chromadb` (see `requirements.txt`) upgrades the respective layer with no other changes. Configure via the `vector` block in `config/benchmark_config.json` (`backend`, `embedder`, `dim`).
 
+> ⚠️ **The vector-store column in the CRUD tables above is a best-case floor, not a real vector system.** Run in-process with the *non-semantic hashing* embedder over tiny synthetic data, it measures "numpy + a token hash" — embedding (the dominant real cost) is essentially free and SEARCH isn't doing semantic work. For an honest measurement with a **real embedding model on a real corpus**, see the next section.
+
+---
+
+## Real-world retrieval: semantic vs keyword (measured)
+
+To answer "is the vector store actually any good?" the CRUD floor above is useless — it uses a non-semantic embedder over random strings. `run_retrieval_benchmark.py` instead runs a real retrieval workload and scores **retrieval quality**, not just speed:
+
+- **Corpus:** [BeIR/scifact](https://github.com/beir-cellar/beir) — real scientific abstracts + natural-language claim queries with **human relevance judgments** (qrels), so recall is measurable.
+- **Semantic:** `sentence-transformers/all-MiniLM-L6-v2` (384-dim) embeddings → **chromadb** HNSW index.
+- **Keyword baseline:** in-process **BM25** — the same token-matching family that git-mem / engram / mcp-server-memory full-text search are built on.
+- **Metrics:** index throughput, search latency, and **recall@k / MRR@10** against the qrels.
+
+### Results — 500 docs, 50 labelled queries (2026-06-15)
+
+CPU-only, 4-vCPU shared container, `all-MiniLM-L6-v2`.
+
+| Metric | BM25 keyword | Semantic (MiniLM + chromadb) |
+|---|---|---|
+| **Index throughput** | 3,439 docs/s | **6 docs/s** |
+| **Search latency (mean)** | **0.67 ms** | 203 ms |
+| **Search latency (p95)** | **1.11 ms** | 654 ms |
+| **recall@10** | 0.931 | **0.940** |
+| **recall@100** | 0.980 | **1.000** |
+| **MRR@10** | 0.879 | **0.895** |
+
+### What this actually shows
+
+- **Embedding is the real, dominant write cost.** Indexing is ~570× slower for the vector store (6 vs 3,439 docs/s), and **≈100 % of that time is the embedding model** — not chromadb. On this CPU that's ~170 ms/doc. The earlier CRUD "WRITE = 0.39 ms" number was the *hashing* embedder; a real model is ~400× slower. This is the price of admission, and it's why production systems batch embeddings or push them to a GPU/API.
+- **Semantic search is real but not free.** ~200 ms/query of CPU inference vs sub-millisecond BM25 — a ~300× latency gap on this hardware. A GPU, a smaller model, or a hosted embedding API changes the absolute numbers a lot, but the *shape* (embed-then-search) stays.
+- **Quality edge is real but modest here.** Semantic wins every quality metric (recall@10 +0.009, recall@100 +0.020, MRR@10 +0.016) — it retrieves *every* relevant doc by rank 100 where BM25 misses 2 %. But scifact is a **keyword-friendly** corpus (claims reuse the abstract's terminology), so this *understates* the semantic advantage you'd see on paraphrase-heavy or cross-vocabulary queries. The honest takeaway: on lexically-aligned data, a good keyword index is a very strong, far cheaper baseline; the vector store earns its cost as queries drift from the documents' wording.
+
+> **Caveats:** single 500-doc run on a CPU-only shared box; absolute latencies are hardware-bound (expect 10–50× faster index/query on a GPU or batched API embedder). recall@k depends on the corpus — scifact favours keywords. Reproduce with `.venv/bin/python run_retrieval_benchmark.py --docs 500`.
+
 ---
 
 ## Quick start
@@ -118,13 +152,25 @@ Out of the box, with only numpy installed, you get the numpy index + hashing emb
 ```bash
 pip install -r requirements.txt
 
-# Basic benchmark (all 5 systems, incl. the vector retrieval store)
+# Basic CRUD benchmark (all 5 systems, incl. the vector retrieval store)
 python3 run_benchmark.py
 
 # Multi-agent scenario benchmarks
 python3 run_multi_agent_benchmark.py
 
 # Results saved to results/raw/benchmark_<timestamp>.json
+```
+
+**Real-world retrieval benchmark** (real embeddings + a real corpus — semantic vs keyword). This needs `sentence-transformers`, `chromadb`, and `datasets`, which pull in torch; on a PEP 668 system use a venv:
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install sentence-transformers chromadb datasets
+
+# Semantic (MiniLM + chromadb) vs BM25 keyword, scored on recall@k with
+# human relevance labels over ~5k real scientific abstracts (BeIR/scifact)
+.venv/bin/python run_retrieval_benchmark.py --docs 500     # ~500 docs, quick
+.venv/bin/python run_retrieval_benchmark.py --docs 5000    # fuller corpus (slow on CPU)
 ```
 
 ### Multi-agent scenarios
@@ -153,7 +199,8 @@ python3 run_multi_agent_benchmark.py
 | git-mem | `go install github.com/git-mem/git-mem@latest` |
 | engram | `go install github.com/Gentleman-Programming/engram/cmd/engram@latest` |
 | mcp-server-memory | fetched automatically via `npx -y @modelcontextprotocol/server-memory` (requires Node.js) |
-| vector-store | none required (numpy only); optional `pip install sentence-transformers chromadb` for semantic embeddings + ANN index |
+| vector-store (CRUD) | none required (numpy only); optional `pip install sentence-transformers chromadb` for semantic embeddings + ANN index |
+| retrieval benchmark | `sentence-transformers`, `chromadb`, `datasets` (see venv note in Quick start) |
 
 ---
 
@@ -190,8 +237,9 @@ python3 run_benchmark.py
 
 ```
 git-mem-bench/
-├── run_benchmark.py               # Basic benchmark entry point
+├── run_benchmark.py               # Basic CRUD benchmark entry point
 ├── run_multi_agent_benchmark.py   # Multi-agent scenario entry point
+├── run_retrieval_benchmark.py     # Real-world retrieval: semantic vs keyword
 ├── config/
 │   ├── benchmark_config.json      # Server commands and adapter types
 │   └── multi_agent_config.json    # Multi-agent scenario configuration
@@ -200,6 +248,7 @@ git-mem-bench/
 │   ├── benchmark_suite.py         # Basic test orchestration
 │   ├── mcp_client.py              # MCP JSON-RPC client + stats
 │   ├── vector_store.py            # In-process vector retrieval store + embedders
+│   ├── corpus.py                  # Real-text corpus loader (BeIR/scifact, ag_news)
 │   └── multi_agent_benchmark.py   # Multi-agent benchmark suite
 └── results/
     └── raw/                       # JSON output from each run
