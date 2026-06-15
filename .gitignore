@@ -51,6 +51,7 @@ Thumbs.db
 # Results - exclude large raw data files
 results/raw/*.json
 results/raw/*_testdata.json
+results/multi_agent/
 
 # Test data
 *.testdata.json

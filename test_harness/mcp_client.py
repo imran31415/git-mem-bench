@@ -50,25 +50,31 @@ class MCPClient:
         self.initialized = False
 
     def start(self):
-        """Start the MCP server process"""
+        """Start the MCP server process. Returns False if it can't be launched."""
         import os
         env = os.environ.copy()
         env.update(self.extra_env)
 
-        self.process = subprocess.Popen(
-            self.command,
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True,
-            bufsize=1,
-            env=env,
-        )
-        
+        try:
+            self.process = subprocess.Popen(
+                self.command,
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+                bufsize=1,
+                env=env,
+            )
+        except (FileNotFoundError, OSError) as e:
+            # Binary not installed / not executable — let the caller skip it
+            print(f"Could not launch {self.name}: {e}")
+            self.process = None
+            return False
+
         # Start response reader thread
         self.reader_thread = threading.Thread(target=self._read_responses, daemon=True)
         self.reader_thread.start()
-        
+
         # Initialize connection
         return self._initialize()
     

@@ -191,6 +191,56 @@ class MCPKnowledgeGraphAdapter(MemoryAdapter):
 
 
 # ---------------------------------------------------------------------------
+# Vector retrieval store adapter
+# ---------------------------------------------------------------------------
+
+class VectorStoreAdapter(MemoryAdapter):
+    """
+    Maps the benchmark operations onto an in-process vector store.
+
+    Unlike the MCP adapters above, the `client` here is a VectorStoreClient
+    (no subprocess) whose `.store` is an embedded vector index. The key
+    asymmetry vs a key-value store, made explicit so the report is honest:
+
+      WRITE  — embeds the document before inserting (the cost of admission).
+      READ   — id-keyed lookup, O(1), no embedding.
+      SEARCH — embeds the query and returns nearest neighbours by cosine
+               similarity. This is *semantic* retrieval (when backed by a real
+               embedding model), not substring matching — the one operation a
+               vector store is built to win.
+      DELETE — id-keyed removal from the index.
+      LIST   — enumerate ids.
+    """
+
+    def __init__(self, client):
+        super().__init__(client)
+        self.store = client.store
+
+    def write(self, key: str, value: Any) -> Dict:
+        return self.store.add(key, value)
+
+    def read(self, key: str) -> Dict:
+        return self.store.get(key)
+
+    def search(self, query: str) -> Dict:
+        return self.store.search(query, top_k=10)
+
+    def delete(self, key: str) -> Dict:
+        return self.store.delete(key)
+
+    def list_all(self) -> Dict:
+        return self.store.list_all()
+
+    @property
+    def read_mode(self) -> str:
+        return "direct id lookup (no embedding)"
+
+    @property
+    def delete_mode(self) -> str:
+        return "direct id delete"
+
+
+# ---------------------------------------------------------------------------
 # Registry
 # ---------------------------------------------------------------------------
 
@@ -198,4 +248,5 @@ ADAPTER_REGISTRY: Dict[str, type] = {
     "git-mem": GitMemAdapter,
     "engram": EngramAdapter,
     "mcp-knowledge-graph": MCPKnowledgeGraphAdapter,
+    "vector-store": VectorStoreAdapter,
 }

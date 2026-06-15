@@ -220,6 +220,18 @@ class MockLLMEngine:
 
         return content
 
+    def generate_search_query(self, goal: str, history: List[str] = None) -> str:
+        """Simulate LLM generating a search query from a goal."""
+        self.think("complex")
+        keywords = goal.lower().split()
+        query = random.choice(keywords) if keywords else goal[:20]
+        self.decisions.append({
+            "type": "search_query",
+            "goal": goal,
+            "query": query,
+        })
+        return query
+
     def summarize_conversation(self, messages: List[Dict], max_length: int = 500) -> str:
         """Simulate LLM summarizing conversation history."""
         self.think("complex")
@@ -331,6 +343,11 @@ class SimulatedAgent:
     with mock LLM decision making.
     """
 
+    # The logical memory operations every adapter exposes. These are the only
+    # callable "tools" — adapter attributes like read_mode/delete_mode (str
+    # properties) or the underlying client/store object are not operations.
+    OPERATION_TOOLS = ("write", "read", "search", "delete", "list_all")
+
     def __init__(self, agent_id: str, adapter, llm_engine: MockLLMEngine = None):
         self.agent_id = agent_id
         self.adapter = adapter
@@ -340,10 +357,15 @@ class SimulatedAgent:
         self._running = False
 
     def get_available_tools(self) -> List[str]:
-        """Get list of available MCP tools from adapter."""
-        # Extract tool names from adapter methods
-        tool_methods = [m for m in dir(self.adapter) if not m.startswith('_')]
-        return tool_methods
+        """Get the logical memory operations the adapter supports.
+
+        Only the canonical operations (write/read/search/delete/list_all) are
+        tools. We must not enumerate every public attribute via dir(), or
+        non-callable members (read_mode/delete_mode properties, the client or
+        vector store backend) get mistaken for tools and blow up on call.
+        """
+        return [op for op in self.OPERATION_TOOLS
+                if callable(getattr(self.adapter, op, None))]
 
     def execute_tool(self, tool_name: str, arguments: Dict = None) -> Tuple[Any, float, bool, Optional[str]]:
         """Execute a tool with timing."""
@@ -604,7 +626,7 @@ class MultiAgentOrchestrator:
         results_lock = threading.Lock()
 
         def run_agent(config: Dict):
-            nonlocal memory_contention
+            nonlocal memory_contention, coordination_overhead
             agent = self.agents.get(config['agent_id']) or self.create_agent(config['agent_id'])
 
             # Simulate coordination overhead

@@ -34,6 +34,19 @@
       "env": {
         "MEMORY_FILE_PATH": "/tmp/benchmark-mcp-server-memory.jsonl"
       }
+    },
+    "vector-store": {
+      "command": [],
+      "adapter_type": "vector-store",
+      "enabled": true,
+      "description": "In-process vector retrieval store. WRITE embeds each document; SEARCH is semantic nearest-neighbour by cosine similarity. Auto-selects chromadb + sentence-transformers if installed, else a numpy index + hashing embedder.",
+      "storage_model": "dense vectors + similarity index",
+      "portability": "low — index/embeddings are not human-readable and have no git history",
+      "vector": {
+        "backend": "auto",
+        "embedder": "auto",
+        "dim": 384
+      }
     }
   },
   "benchmark": {
