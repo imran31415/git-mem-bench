@@ -26,6 +26,7 @@ sys.path.insert(0, os.path.join(REPO_ROOT, "test_harness"))
 try:
     from multi_agent_benchmark import MCPMultiAgentBenchmark, OrchestrationResult
     from mcp_client import MCPClient
+    from vector_store import VectorStoreClient
     from adapters import ADAPTER_REGISTRY
 except ImportError as e:
     print(f"Error importing modules: {e}")
@@ -217,11 +218,21 @@ class OrchestrationAgentSpawner:
 # ============================================================================
 
 def load_config(config_file: str = None) -> Dict:
-    """Load benchmark configuration."""
+    """Load benchmark configuration, filling any missing keys from DEFAULT_CONFIG.
+
+    Merging defensively means a partial or server-only config (e.g.
+    benchmark_config.json, which has no `scenarios`/`output_directory`) still
+    yields a usable config instead of raising KeyError downstream.
+    """
+    config = {**DEFAULT_CONFIG}
     if config_file and os.path.exists(config_file):
         with open(config_file) as f:
-            return json.load(f)
-    return DEFAULT_CONFIG.copy()
+            loaded = json.load(f)
+        config.update(loaded)
+        # ignore a server-only config's keys we don't use here
+        config.setdefault("scenarios", DEFAULT_CONFIG["scenarios"])
+        config.setdefault("output_directory", DEFAULT_CONFIG["output_directory"])
+    return config
 
 
 def create_adapter_for_server(server_name: str, server_config: Dict) -> Any:
@@ -232,6 +243,12 @@ def create_adapter_for_server(server_name: str, server_config: Dict) -> Any:
     if adapter_cls is None:
         print(f"Warning: Unknown adapter type '{adapter_type}', using GitMemAdapter")
         adapter_cls = GitMemAdapter
+
+    # Vector store runs in-process (no MCP subprocess).
+    if adapter_type == "vector-store":
+        client = VectorStoreClient(server_name, **(server_config.get("vector") or {}))
+        client.start()
+        return adapter_cls(client)
 
     # Create MCP client
     command = server_config["command"]
@@ -401,8 +418,9 @@ def main():
 
     args = parser.parse_args()
 
-    # Load configuration
-    config_file = args.config or os.path.join(REPO_ROOT, "config", "benchmark_config.json")
+    # Load configuration. Scenarios + output live in multi_agent_config.json;
+    # the server list is always read from benchmark_config.json below.
+    config_file = args.config or os.path.join(REPO_ROOT, "config", "multi_agent_config.json")
     config = load_config(config_file)
 
     if args.output:

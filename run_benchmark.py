@@ -121,6 +121,7 @@ def main() -> None:
             name, cfg["command"],
             adapter_type=cfg.get("adapter_type", "git-mem"),
             env=env,
+            vector_cfg=cfg.get("vector"),
         ):
             ok_servers.append(name)
             print(f"  ✓ {name} ready")

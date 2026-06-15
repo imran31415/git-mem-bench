@@ -13,10 +13,12 @@ from datetime import datetime
 from typing import Dict, List, Any
 
 from mcp_client import MCPClient, BenchmarkRunner
+from vector_store import VectorStoreClient
 from adapters import (
     GitMemAdapter,
     EngramAdapter,
     MCPKnowledgeGraphAdapter,
+    VectorStoreAdapter,
     ADAPTER_REGISTRY,
 )
 
@@ -88,9 +90,13 @@ class MCPMemoryBenchmark:
     # ------------------------------------------------------------------
 
     def setup_client(self, name: str, command: List[str], adapter_type: str,
-                     env: Dict[str, str] = None) -> bool:
-        """Start the MCP server process and attach the appropriate adapter."""
-        client = MCPClient(command, name, extra_env=env)
+                     env: Dict[str, str] = None,
+                     vector_cfg: Dict[str, Any] = None) -> bool:
+        """Start the server (or in-process store) and attach the adapter."""
+        if adapter_type == "vector-store":
+            client = VectorStoreClient(name, **(vector_cfg or {}))
+        else:
+            client = MCPClient(command, name, extra_env=env)
         if not client.start():
             return False
 
@@ -114,6 +120,13 @@ class MCPMemoryBenchmark:
             adapter_cls = GitMemAdapter
         self.adapters[name] = adapter_cls(client)
         print(f"  {name}: using {adapter_cls.__name__}")
+        if isinstance(client, VectorStoreClient):
+            print(f"    backend : {client.backend_name}")
+            print(f"    embedder: {client.embedder_name}")
+            if not client.is_semantic:
+                print("    note    : non-semantic embedder — SEARCH matches "
+                      "shared tokens only (install sentence-transformers for "
+                      "true semantic recall)")
         return True
 
     # ------------------------------------------------------------------
