@@ -10,6 +10,8 @@ git-mem is not the fastest option on raw latency, but it offers something the ot
 
 50 operations per test, 100-item dataset, Linux container (2–3 vCPU). All five systems in one run, including the **vector retrieval store**.
 
+> **These are CRUD micro-operations on tiny synthetic data.** The `vector-store ‡` column runs in-process with the *non-semantic hashing* embedder, so its numbers are a best-case floor — embedding (the dominant real cost) is essentially free here and SEARCH isn't doing semantic work. **For the honest vector-store evaluation — a real `sentence-transformers` model on a real corpus, scored on recall — see [Real-world retrieval: semantic vs keyword](#real-world-retrieval-semantic-vs-keyword-measured).** Read the column below for operation *shape* (‡), not as a latency win.
+
 ### Latency (mean ms) — lower is better
 
 | Operation | git-mem sync | git-mem async | engram | mcp-server-memory | vector-store ‡ |
